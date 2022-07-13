@@ -105,7 +105,7 @@ class SpectrometerDriver():
         self.integration_time = intTime.data/1000
         return True
 
-    def realtime_read(self, _) -> RequestOnceResponse:
+    def realtime_read(self, _: RequestOnce) -> RequestOnceResponse:
         '''
         Instead of subscribing to a topic, allow access to singular readings on demand
         '''
@@ -116,7 +116,7 @@ class SpectrometerDriver():
             toSend.response = spectraMsg
             return toSend
 
-    def start_collect(self, RequestCollect) -> StartCollectResponse:
+    def start_collect(self, _: StartCollect) -> StartCollectResponse:
         '''
         Collect and deliver multiple messages at once
         '''
@@ -126,7 +126,7 @@ class SpectrometerDriver():
         rospy.loginfo('Starting Spectrometer Collection!')
         return True
 
-    def end_collect(self, EndCollect) -> EndCollectResponse:
+    def end_collect(self, _: EndCollect) -> EndCollectResponse:
         '''
         Stop collecting data and generate a message with all the collected samples
         '''
@@ -182,7 +182,7 @@ class SpectrometerDriver():
         toSend.temp = 0
         return toSend
 
-    def create_spectra_array(self, data) -> SpectraArray:
+    def create_spectra_array(self, data: List) -> SpectraArray:
         # Convert data to a store
         dataArray = np.array(data)
         toSend = SpectraArray()
