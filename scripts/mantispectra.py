@@ -29,11 +29,13 @@ class SpectrometerDriver():
         self.last = []
         self.collection_on = False
         self.msg_count = 0
+        # Get an instance of RosPack with the default search paths
+        rospack = rospkg.RosPack()
         # Grab parameters from the ros param server
         self.integration_time = rospy.get_param('integration_time', 100)/1000
         self.start_light_power = rospy.get_param('light_power', 'ffv')
-        self.white_ref = self.load_calibration(rospy.get_param('white_cal', None))
-        self.dark_ref = self.load_calibration(rospy.get_param('dark_cal', None))
+        self.white_ref = self.load_calibration(rospy.get_param('white_cal', os.path.join(rospack.get_path('spectrometer_drivers'),'data','mantispectra_white_ref.txt')))
+        self.dark_ref = self.load_calibration(rospy.get_param('dark_cal' ,os.path.join(rospack.get_path('spectrometer_drivers'),'data', 'mantispectra_dark_ref.txt')))
         self.wavelengths = rospy.get_param('device_wavelengths', 
             [ 850, 906.67, 963.33, 1020, 1076.67, 1133.33, 1190, 1246.67, 1303.33, 1360, 1416.67, 1473.33, 1530, 1586.67, 1643.33, 1700]
         )
