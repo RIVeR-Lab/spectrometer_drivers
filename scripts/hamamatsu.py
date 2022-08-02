@@ -150,7 +150,6 @@ class SpectrometerDriver():
         ansi_removed = ansi_escape.sub('', data)
         # Parse data into array
         parsed_data = np.array([int(z.strip()) for z in ansi_removed.split(',')[:-1]], dtype=np.int32)
-        print(parsed_data)
         # print(f'Data length: {len(parsed_data)} {len(self.wavelengths)}')
         if len(parsed_data) != len(self.wavelengths):
             rospy.logerr('Incomplete spectral data received!')

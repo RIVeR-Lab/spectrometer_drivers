@@ -22,6 +22,7 @@ from std_msgs.msg import String, Header, Int8, Int32
 # Date: 07/09/2022
 # Purpose: ROS Node for interfacing with MantiSpectra Device
 
+
 class SpectrometerDriver():
     def __init__(self):
         # Initialize empty store to aggregate spectral readings
@@ -34,11 +35,14 @@ class SpectrometerDriver():
         # Grab parameters from the ros param server
         self.integration_time = rospy.get_param('integration_time', 100)/1000
         self.start_light_power = rospy.get_param('light_power', 'ffv')
-        self.white_ref = self.load_calibration(rospy.get_param('white_cal', os.path.join(rospack.get_path('spectrometer_drivers'),'data','mantispectra_white_ref.txt')))
-        self.dark_ref = self.load_calibration(rospy.get_param('dark_cal' ,os.path.join(rospack.get_path('spectrometer_drivers'),'data', 'mantispectra_dark_ref.txt')))
-        self.wavelengths = rospy.get_param('device_wavelengths', 
-            [ 850, 906.67, 963.33, 1020, 1076.67, 1133.33, 1190, 1246.67, 1303.33, 1360, 1416.67, 1473.33, 1530, 1586.67, 1643.33, 1700]
-        )
+        self.white_ref = self.load_calibration(rospy.get_param('white_cal', os.path.join(
+            rospack.get_path('spectrometer_drivers'), 'data', 'mantispectra_white_ref.txt')))
+        self.dark_ref = self.load_calibration(rospy.get_param('dark_cal', os.path.join(
+            rospack.get_path('spectrometer_drivers'), 'data', 'mantispectra_dark_ref.txt')))
+        self.wavelengths = rospy.get_param('device_wavelengths',
+                                           [850, 906.67, 963.33, 1020, 1076.67, 1133.33, 1190, 1246.67,
+                                               1303.33, 1360, 1416.67, 1473.33, 1530, 1586.67, 1643.33, 1700]
+                                           )
         # Port name
         self.port_path = rospy.get_param('port', '/dev/ttyUSB0')
 
@@ -50,17 +54,24 @@ class SpectrometerDriver():
         self.spectrometer.write('ffv'.encode())
 
         # Initialize publishers
-        self.pub = rospy.Publisher('/mantispectra/data', Spectra, queue_size=10)
-        self.pub_cal = rospy.Publisher('/mantispectra/data_cal', Spectra, queue_size=10)
-        
+        self.pub = rospy.Publisher(
+            '/mantispectra/data', Spectra, queue_size=10)
+        self.pub_cal = rospy.Publisher(
+            '/mantispectra/data_cal', Spectra, queue_size=10)
+
         # Initialize collection services
-        self.service_start = rospy.Service('/mantispectra/request_start', StartCollect, self.start_collect)
-        self.service_end = rospy.Service('/mantispectra/request_end', EndCollect, self.end_collect)
-        self.service_once = rospy.Service('/mantispectra/request_sample', RequestOnce, self.realtime_read)
-        
+        self.service_start = rospy.Service(
+            '/mantispectra/request_start', StartCollect, self.start_collect)
+        self.service_end = rospy.Service(
+            '/mantispectra/request_end', EndCollect, self.end_collect)
+        self.service_once = rospy.Service(
+            '/mantispectra/request_sample', RequestOnce, self.realtime_read)
+
         # Initialize serivce utilities
-        self.service_light = rospy.Service("/mantispectra/light_power", Light, self.set_light_power)
-        self.service_integration = rospy.Service("/mantispectra/integration_time", Integration, self.set_integration_time)
+        self.service_light = rospy.Service(
+            "/mantispectra/light_power", Light, self.set_light_power)
+        self.service_integration = rospy.Service(
+            "/mantispectra/integration_time", Integration, self.set_integration_time)
         # Define shutdown behavior
         rospy.on_shutdown(self.shutdown)
 
@@ -88,7 +99,6 @@ class SpectrometerDriver():
         toSend.response = True
         return toSend
 
-    
     def set_integration_time(self, intTime: Integration) -> IntegrationResponse:
         '''
         Set the integration time for one of the preselected values
@@ -99,12 +109,13 @@ class SpectrometerDriver():
 
         1,2,3,4,5,6,7,8,9,15
         '''
-        integrationTimes = [1,2,4,8,16,32,64,128,256,512]
-        writeValues = [1,2,3,4,5,6,7,8,9,15]
+        integrationTimes = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+        writeValues = [1, 2, 3, 4, 5, 6, 7, 8, 9, 15]
 
         toSend = IntegrationResponse()
         try:
-            useIntegrationTime = writeValues[integrationTimes.index(intTime.data)]
+            useIntegrationTime = writeValues[integrationTimes.index(
+                intTime.data)]
             formattedTime = f'{useIntegrationTime}o'
             self.spectrometer.write(formattedTime.encode())
             self.spectrometer.flush()
@@ -140,7 +151,7 @@ class SpectrometerDriver():
         rospy.loginfo('Starting Spectrometer Collection!')
         return True
 
-    def end_collect(self, _:EndCollect) -> EndCollectResponse:
+    def end_collect(self, _: EndCollect) -> EndCollectResponse:
         '''
         Stop collecting data and generate a message with all the collected samples
         '''
@@ -158,7 +169,7 @@ class SpectrometerDriver():
         Take raw data from serial output and parse it into correct format
         '''
         # Remove ANSI escape charters \x1b[36m (cyan)
-        ansi_escape =re.compile(r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]')
+        ansi_escape = re.compile(r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]')
 
         # Remove ANSI escape characters
         ansi_removed = ansi_escape.sub('', data)
@@ -185,7 +196,8 @@ class SpectrometerDriver():
         toSend = Spectra()
         # Create header
         h = Header()
-        h.stamp = rospy.Time.now() # Note you need to call rospy.init_node() before this will work
+        # Note you need to call rospy.init_node() before this will work
+        h.stamp = rospy.Time.now()
         toSend.header = h
         toSend.data = data[:16]
         toSend.wavelengths = self.wavelengths
@@ -211,13 +223,14 @@ class SpectrometerDriver():
         toSend.wavelengths = self.wavelengths
         toSend.numberSamples = len(dataArray)
         # This flatten the array, to regain shape, just undo the reshape operation
-        toSend.data = dataArray[:,:16].reshape(len(self.wavelengths*1)*len(dataArray))
-        toSend.integrationTime = dataArray[:,-4].flatten()
-        toSend.lampPower = dataArray[:,-3].flatten()
-        toSend.humidity = dataArray[:,-2].flatten()
-        toSend.temp = dataArray[:,-1].flatten()
+        toSend.data = dataArray[:, :16].reshape(
+            len(self.wavelengths*1)*len(dataArray))
+        toSend.integrationTime = dataArray[:, -4].flatten()
+        toSend.lampPower = dataArray[:, -3].flatten()
+        toSend.humidity = dataArray[:, -2].flatten()
+        toSend.temp = dataArray[:, -1].flatten()
         return toSend
-    
+
     def send_spectra(self, data: np.ndarray) -> None:
         '''
         Publish and uncalibrated spectral measurement
@@ -232,7 +245,8 @@ class SpectrometerDriver():
         toSend = Spectra()
         # Create header
         h = Header()
-        h.stamp = rospy.Time.now() # Note you need to call rospy.init_node() before this will work
+        # Note you need to call rospy.init_node() before this will work
+        h.stamp = rospy.Time.now()
         toSend.header = h
         toSend.data = self.reflectance_normalize(data[:16])
         toSend.integrationTime = data[-4]
@@ -246,11 +260,11 @@ class SpectrometerDriver():
         Reflectance normalize against white/dark reference standards
         '''
         if self.white_ref == [] or self.dark_ref == []:
-            rospy.logdebug('No calibration data available, using original data')
+            rospy.logdebug(
+                'No calibration data available, using original data')
             return data
         else:
             return (data - self.dark_ref) / (self.white_ref - self.dark_ref)
-
 
     def run(self) -> None:
         '''
@@ -277,6 +291,7 @@ class SpectrometerDriver():
         self.spectrometer.write('0v'.encode())
         # Close the serial transmission
         self.spectrometer.close()
+
 
 # Main functionality
 if __name__ == '__main__':
