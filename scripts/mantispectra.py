@@ -44,7 +44,7 @@ class SpectrometerDriver():
                                                1303.33, 1360, 1416.67, 1473.33, 1530, 1586.67, 1643.33, 1700]
                                            )
         # Port name
-        self.port_path = rospy.get_param('port', '/dev/ttyUSB0')
+        self.port_path = rospy.get_param('port', '/dev/ttyUSB1')
 
         # Initialize the spectrometer the Baudrate must equal 115200
         self.spectrometer = serial.Serial(self.port_path, baudrate=115200)

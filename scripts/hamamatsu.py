@@ -43,7 +43,7 @@ class SpectrometerDriver():
         if self.wavelengths == None:
             self.wavelengths = list(np.linspace(340,850,288))
         # Port name
-        self.port_path = rospy.get_param('port', '/dev/ttyACM0')
+        self.port_path = rospy.get_param('port', '/dev/ttyACM1')
 
         # Initialize the spectrometer the Baudrate must equal 115200
         self.spectrometer = serial.Serial(self.port_path, baudrate=115200)
