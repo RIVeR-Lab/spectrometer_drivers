@@ -1,0 +1,3 @@
+<launch>
+    <node pkg="spectrometer_drivers" type="spectral_data_streamer" name="spectral_data_streamer" launch-prefix="sudo -S"/>
+</launch>
