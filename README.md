@@ -16,7 +16,6 @@ The Ibsen spectrometers require installation of the FT4222H library.
 ```
 wget https://ftdichip.com/wp-content/uploads/2022/06/libft4222-linux-1.4.4.170.tgz
 tar zxvf libft4222-linux-1.4.4.170.tgz
-cd libft4222-linux-1.4.4.170.tgz
 sudo ./install4222.sh
 ```
 The package should now be added to your `/usr/local/lib` and `/usr/local/include` directories for the C++ build path. If these locations are not writable, you can change the install location but make sure to update `CMakeLists.txt` with the new header and shared object file locations.
