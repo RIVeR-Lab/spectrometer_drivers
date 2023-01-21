@@ -56,3 +56,14 @@ This will prompt you to run the code with elevated permissions (currently requir
 
 `data_cal` - Reflectance normalized readings
 `data` - Raw readings in the spectrometer's native data format
+
+### Troubleshooting
+
+Running ROS nodes as root can result in environmental variables not being properly reported. If the `ibsen.launch` fails to run, try explicitly adding the ROS libs for all users. Specifically, you can add `/opt/ros/noetic/lib` to a file in `/etc/ld/so/conf.d` and then execute `sudo ldconfig -v` to set library definitions for all users.
+
+### TODO
+
+- [ ] Confirm both IBSEN devices run at the same time
+- [ ] Look at wavelength calibration coefficient for each device. Look into how to calibrate wavelengths
+- [ ] Provide configurations for spectrometers with available wavelengths
+- [ ] Move StellarNet Spectrometers into this directory for conciseness

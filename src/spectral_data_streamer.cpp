@@ -15,6 +15,9 @@ public:
     {
         pub = nh->advertise<spectrometer_drivers::Spectra>("spectral_data", 10);
         nh->param<int>("integration_time", integrationTime, 10);
+        nh->getParam("min_wavelength", minWave);
+        nh->getParam("max_wavelength", maxWave);
+        ros::ServiceServer service = nh->advertiseService("set_integration_time", &IbsenDriver::UpdateIntegrationCallService, this);
         this->ftHandleCS0 = (FT_HANDLE)NULL;
         this->ftHandleCS1 = (FT_HANDLE)NULL;
         // Open a connection to the spectrometer based on description for CS1.
@@ -74,7 +77,7 @@ public:
         else
         {
             // Print the pointer of the Read write register handle, if open correctly.
-            ROS_INFO("\nPointer of Register parameter handle, CS0 in DISB HW manual : %p", this->ftHandleCS0);
+            ROS_DEBUG("\nPointer of Register parameter handle, CS0 in DISB HW manual : %p", this->ftHandleCS0);
         }
         // Initilize the FT4222H as a master for USB to SPI bridge functionality.
         /*
@@ -94,7 +97,7 @@ public:
         else
         {
             // Print the pointer of the Bulk data handle, if open correctly.
-            ROS_INFO("\nPointer of Bulk data handle, CS1 in DISB HW manual: %p", this->ftHandleCS1);
+            ROS_DEBUG("\nPointer of Bulk data handle, CS1 in DISB HW manual: %p", this->ftHandleCS1);
         }
         ROS_INFO("\n");
         // Perform a single read of register 1, and both print the value to the terminal and example.txt
@@ -155,6 +158,8 @@ public:
         ROS_INFO("\nLast pixel read: %d", LastPixel);
         // Set starting integration time
         this->SetIntegrationTime(integrationTime);
+        // Create the wavelengths
+        this->wavelengths = this->LinearSpacedArray(this->minWave, this->maxWave, PixelPerImage);
         while (ros::ok())
         {
             // Read the first pixel to be read, located in register 23.
@@ -183,7 +188,7 @@ public:
             // Change the chip select from 0 to 1 (CS0 --> CS1) and Framesize from 8-bit bytes to 16-bit
             // "\n-----------------------------------------------------------------------------------------------
             // ";
-            ROS_DEBUG("\n");
+            ROS_INFO("\n");
             uint16_t SizeTransferred;
             uint16_t datalength = (LastPixel - FirstPixel + 1.0) * 2.0;
             uint8_t BufferIn[datalength];
@@ -196,7 +201,7 @@ public:
             }
             FT4222_SPIMaster_SingleReadWrite(this->ftHandleCS1, BufferIn, BufferOut, datalength,
                                              &SizeTransferred, 1);
-            ROS_DEBUG("\nSize of tranfer %d \n", SizeTransferred);
+            ROS_INFO("\nSize of tranfer %d \n", SizeTransferred);
             // Stich and print the pixel values
             uint16_t SpectrometerPix;
             float SpectrometerPixCov;
@@ -208,8 +213,16 @@ public:
                 float SpectrometerPixCov = SpectrometerPix;
                 msg.data.push_back(SpectrometerPixCov);
             }
-            // Grab current'l4fwl'
+            // Grab current temperature
+            msg.temp = (int)this->ReadRegister(this->ftHandleCS0, 11);
+            // Set integration time here
+            msg.integrationTime = this->integrationTime;
+            // Set linear space wavelengths for reference/plots
+            msg.wavelengths = this->wavelengths;
             pub.publish(msg);
+            // Sleep for the integration time
+            ros::Duration((double)this->integrationTime/(double)1000).sleep();
+            ros::spinOnce();
         }
     }
     ~IbsenDriver()
@@ -237,6 +250,9 @@ public:
 private:
     ros::Publisher pub;
     int integrationTime;
+    float minWave;
+    float maxWave;
+    std::vector<float> wavelengths;
     FT_STATUS ftStatus;
     FT_HANDLE ftHandleCS0;
     FT_HANDLE ftHandleCS1;
@@ -247,7 +263,7 @@ private:
         FT_STATUS ftStatus;
         // Check number of devices
         ftStatus = FT_CreateDeviceInfoList(&numDevs);
-        ROS_INFO("%d", ftStatus);
+        printf("%d", ftStatus);
         // Cycle through the different available device, there should be 4, (A-D)
         if (ftStatus == 0)
         {
@@ -261,28 +277,42 @@ private:
                     FT_GetDeviceInfoDetail(i, &devInfo.Flags, &devInfo.Type, &devInfo.ID, &devInfo.LocId,
                                            devInfo.SerialNumber, devInfo.Description, &devInfo.ftHandle);
                 // Print some basic info about that device.
-                ROS_INFO("\nDevice %d: Description '%s': LocationID '%d':", i, devInfo.Description,
+                printf("\nDevice %d: Description '%s': LocationID '%d':", i, devInfo.Description,
                        devInfo.LocId);
             }
         }
         else
         {
-            ROS_ERROR("Error, No FT4222H detected.\n");
+            printf("Error, No FT4222H detected.\n");
         }
+    }
+    // Linear interpolation following MATLAB linspace - Taken from https://gist.github.com/mortenpi/f20a93c8ed3ee7785e65
+    std::vector<float> LinearSpacedArray(float a, float b, std::size_t N)
+    {
+        float h = (b - a) / static_cast<float>(N-1);
+        std::vector<float> xs(N);
+        std::vector<float>::iterator x;
+        float val;
+        for (x = xs.begin(), val = a; x != xs.end(); ++x, val += h) {
+            *x = val;
+        }
+        for (float i: xs)
+            printf("%f",i); 
+        return xs;
     }
     bool UpdateIntegrationCallService(spectrometer_drivers::Integration::Request &req,
                                       spectrometer_drivers::Integration::Response &res) {
         // Receive a request and update the integration time in milliseconds
+        res.response = true;
         try
         {
             this->SetIntegrationTime(req.data);
         }
         catch(const std::exception& e)
         {
-            return false;
+            res.response = false;
         }
-        // No errors, return true
-        
+        return true;
     }
     // Calculate the integration time
     // @param newTime is the integration time in miliseconds
@@ -347,7 +377,6 @@ private:
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "ibsen_driver");
-    ros::NodeHandle nh;
+    ros::NodeHandle nh("~");
     IbsenDriver nc = IbsenDriver(&nh);
-    ros::spin();
 }

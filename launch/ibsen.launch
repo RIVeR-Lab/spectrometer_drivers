@@ -1,3 +1,6 @@
 <launch>
-    <node pkg="spectrometer_drivers" type="spectral_data_streamer" name="spectral_data_streamer" launch-prefix="sudo -S"/>
+    <node pkg="spectrometer_drivers" type="spectral_data_streamer" name="ibsen_vnir" launch-prefix="sudo -SE">
+        <param name="min_wavelength" value="500"/> <!--Pebble VNIR = 500, Pebble NIR = 950 -->
+        <param name="max_wavelength" value="1100"/> <!-- Pebble VNIR = 1100, Pebble NIR = 1700 -->
+    </node>
 </launch>
