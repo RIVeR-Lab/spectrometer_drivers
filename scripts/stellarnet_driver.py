@@ -1,27 +1,26 @@
-#!/usr/bin/python3
-import re
+#!/home/river/.pyenv/versions/3.6.7/bin/python
+
+# This line must be set to python 3.6 or the script will not work!
 import os
-import csv
+import sys
 import time
 import rospy
-import serial
-import signal
-import typing
 import rospkg
+import typing
 import traceback
 import numpy as np
 from copy import copy
-from datetime import datetime
-from typing import List, Tuple, Dict
-from spectrometer_drivers.msg import Spectra, SpectraArray
+# import the manufacturer usb driver
+import stellarnet_driver3 as sn
+from typing import List, Dict, Tuple
 from spectrometer_drivers.srv import *
-from std_msgs.msg import String, Header, Int8, Int32
+from std_msgs.msg import String, Header
+from spectrometer_drivers.msg import Spectra, SpectraArray
 
-# Hamamatsu Spectrometer ROS Driver
+# Stellarnet spectrometer driver
 # Author: Nathaniel Hanson
-# Date: 07/09/2022
-# Purpose: ROS Node for interfacing with MantiSpectra Device
-
+# Date: 01/23/2023
+# Purpose: ROS node VNIR sectrometer using manufacturer SDK        
 class SpectrometerDriver():
     def __init__(self):
         # Initialize empty store to aggregate spectral readings
@@ -36,36 +35,48 @@ class SpectrometerDriver():
         # Grab parameters from the ros param server
         # Integration time in seconds
         self.integration_time = rospy.get_param('integration_time', 0.100)
-        self.start_light_power = rospy.get_param('light_power', 0)
-        self.white_ref = self.load_calibration(rospy.get_param('white_cal', os.path.join(rospack.get_path('spectrometer_drivers'),'data','hamamatsu_white_ref.txt')))
-        self.dark_ref = self.load_calibration(rospy.get_param('dark_cal' ,os.path.join(rospack.get_path('spectrometer_drivers'),'data', 'hamamatsu_dark_ref.txt')))
-        self.wavelengths = rospy.get_param('device_wavelengths', None)
-        if self.wavelengths == None:
-            self.wavelengths = list(np.linspace(340,850,288))
-        # Port name
-        self.port_path = rospy.get_param('port', '/dev/ttyACM1')
-
-        # Initialize the spectrometer
-        # The Baudrate must equal 115200
-        self.spectrometer = serial.Serial(self.port_path, baudrate=115200)
-        self.spectrometer.flushInput()
-        self.spectrometer.flushOutput()
+        self.white_ref = self.load_calibration(rospy.get_param('white_cal', os.path.join(rospack.get_path('spectrometer_drivers'),'data','stellarnet_white_ref.txt')))
+        self.dark_ref = self.load_calibration(rospy.get_param('dark_cal', os.path.join(rospack.get_path('spectrometer_drivers'),'data', 'stellarnet_dark_ref.txt')))
+        # Create spectrometer connection
+        self.spectrometer, self.wavelengths = sn.array_get_spec(0)  
+        self.integration_time = rospy.get_param('integration_time', 100)
+        self.scansavg = rospy.get_param('scan_averaging', 1)
+        self.smooth = rospy.get_param('smoothing_factor', 1)
+        self.setup_spec()
 
         # Initialize publishers
-        self.pub = rospy.Publisher('/hamamatsu/data', Spectra, queue_size=10)
-        self.pub_cal = rospy.Publisher('/hamamatsu/data_cal', Spectra, queue_size=10)
+        self.pub = rospy.Publisher('/stellarnet/data', Spectra, queue_size=10)
+        self.pub_cal = rospy.Publisher('/stellarnet/data_cal', Spectra, queue_size=10)
         
         # Initialize collection services
-        self.service_start = rospy.Service('/hamamatsu/request_start', StartCollect, self.start_collect)
-        self.service_end = rospy.Service('/hamamatsu/request_end', EndCollect, self.end_collect)
-        self.service_once = rospy.Service('/hamamatsu/request_sample', RequestOnce, self.realtime_read)
+        self.service_start = rospy.Service('/stellarnet/request_start', StartCollect, self.start_collect)
+        self.service_end = rospy.Service('/stellarnet/request_end', EndCollect, self.end_collect)
+        self.service_once = rospy.Service('/stellarnet/request_sample', RequestOnce, self.realtime_read)
         
         # Initialize serivce utilities
-        self.service_light = rospy.Service("/hamamatsu/light_power", Light, self.set_light_power)
-        self.service_integration = rospy.Service("/hamamatsu/integration_time", Integration, self.set_integration_time)
+        self.service_integration = rospy.Service("/stellarnet/integration_time", Integration, self.set_integration_time)
         # Define shutdown behavior
         rospy.on_shutdown(self.shutdown)
 
+    def setup_spec(self):
+        self.spectrometer['device'].set_config(int_time=self.integration_time, scans_to_avg=self.scansavg, x_smooth=self.smooth)
+    
+    def process_data(self, data: np.ndarray) -> np.array:
+        '''
+        Takes a raw reading from the StellarNet spectrometer in the following format
+        and separates out the counts
+        [wavellength: counts]
+        [[ 339.13 1439. ]
+        [ 339.47636572 1412. ]
+        [ 339.8227929 1410. ]
+        ...
+        [1175.87779313 1410. ]
+        [1176.3498241 1408. ]
+        [1176.82191653 1414. ]]
+        
+        '''
+        return data[:,1]
+    
     def load_calibration(self, path: str) -> np.ndarray or None:
         '''
         Load reflectance calibration values to normalize spectra during processing
@@ -77,24 +88,10 @@ class SpectrometerDriver():
         except Exception as e:
             rospy.logerr('Error opening calibration file!')
             return []
-
-    def set_light_power(self, power: Light) -> LightResponse:
-        '''
-        Sets the light power to the selected value
-        '''
-        powerToSend = ''
-        if power.data > 0:
-            powerToSend = 'light_power ON'
-        else:
-            powerToSend = 'light_power OFF'
-        
-        # Add command to the command buffer
-        self.command_buffer.append(powerToSend)
-        return True
     
     def set_integration_time(self, intTime: Integration) -> IntegrationResponse:
         '''
-        The Hamamatsu allows a continuous integration time
+        The stellarnet allows a continuous integration time
 
         This function constructs the serial command to enable that time change
 
@@ -140,30 +137,6 @@ class SpectrometerDriver():
         # Finally return the stored messages
         return toSend
 
-    def process_data(self, data: str) -> None:
-        '''
-        Take raw data from serial output and parse it into correct format
-        '''
-        # Remove ANSI escape charters \x1b[36m (cyan)
-        ansi_escape =re.compile(r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]')
-
-        # Remove ANSI escape characters
-        ansi_removed = ansi_escape.sub('', data)
-        # Parse data into array
-        parsed_data = np.array([int(z.strip()) for z in ansi_removed.split(',')[:-1]], dtype=np.int32)
-        # print(f'Data length: {len(parsed_data)} {len(self.wavelengths)}')
-        if len(parsed_data) != len(self.wavelengths):
-            rospy.logerr('Incomplete spectral data received!')
-            return
-        else:
-            # Keep a copy of the most recent data
-            self.last = copy(parsed_data)
-            self.send_spectra(parsed_data)
-            self.send_cal_spectra(parsed_data)
-            # Check if we are actively collecting data
-            if self.collection_on:
-                self.store.append(parsed_data)
-                self.msg_count += 1
 
     def generate_spectra_msg(self, data: np.ndarray) -> Spectra:
         '''
@@ -199,7 +172,7 @@ class SpectrometerDriver():
         toSend.numberSamples = len(dataArray)
         # This flatten the array, to regain shape, just undo the reshape operation
         toSend.data = list(dataArray.reshape(len(self.wavelengths*1)*len(dataArray)))
-        # These fields will be blank as there is no corresponding sensory info on the Hamamatsu device
+        # These fields will be blank as there is no corresponding sensory info on the stellarnet device
         toSend.integrationTime = []
         toSend.lampPower = []
         toSend.humidity = []
@@ -253,9 +226,7 @@ class SpectrometerDriver():
         while not rospy.is_shutdown():
             try:
                 # Grab the raw data
-                raw_data = self.spectrometer.readline()
-                # Decode the spectral data
-                spectra_data = raw_data.decode('utf-8').strip()
+                spectra_data = sn.array_spectrum(self.spectrometer, self.wav)
                 # Process and publish the data
                 self.process_data(spectra_data)
                 # Write the latest command
@@ -269,10 +240,7 @@ class SpectrometerDriver():
         '''
         Custom shutdown behavior
         '''
-        # Turn off the light
-        self.spectrometer.write('light_power OFF'.encode())
-        # Close the serial transmission
-        self.spectrometer.close()
+        pass
 
 # Main functionality
 if __name__ == '__main__':

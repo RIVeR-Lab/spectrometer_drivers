@@ -52,6 +52,21 @@ Plug in the DISB board to the 6V power supply and USB cable.
 
 This will prompt you to run the code with elevated permissions (currently required by the ft4222 library).
 
+#### StellarNet
+##### Install Pyevn
+The spectrometer uses a compiled cpthon object which is only compatible with python 3.6.X
+Follow the instructions [Here](https://github.com/pyenv/pyenv), but do not modify the .bashrc file
+```
+pyenv install 3.6.7
+```
+Take the path for installed python3.6 binary and use it as the shebang for `stellarnetdriver.py`. It should look something like:
+```
+#!/home/river/.pyenv/versions/3.6.7/bin/python
+```
+
+Plug in StellarNet spectrometer (Blue Box) to USB port on BACK of PC. The LED on front will turn green when the system is ready to go.
+
+`rosrun spectrometer_drivers stellarnet_driver.py`
 ### Provided Topics
 
 `data_cal` - Reflectance normalized readings
