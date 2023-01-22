@@ -97,8 +97,7 @@ class SpectrometerDriver():
 
         The data value used here is an integer representing the desired integration time, in milliseconds
         '''
-        commandToSend = f'integration_time {intTime.data}'
-        self.command_buffer.append(commandToSend)
+        self.spectrometer['device'].set_config(int_time = intTime.data)
         # Update the integration time
         self.integration_time = intTime.data/1000
         return True
@@ -211,13 +210,6 @@ class SpectrometerDriver():
             return data
         else:
             return (data - self.dark_ref) / (self.white_ref - self.dark_ref)
-
-    def write_commands(self):
-        '''
-        Write serial commands to the Arduino device
-        '''
-        if len(self.command_buffer) > 0:
-            self.spectrometer.write(self.command_buffer.pop(0).encode())
 
     def run(self) -> None:
         '''

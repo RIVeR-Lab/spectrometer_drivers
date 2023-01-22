@@ -8,10 +8,11 @@ Drivers for spectrometers and standardized message formats
 - Hamamatsu C12880MA Mini-Spectrometer with GroupGets Breakout Board
 - Ibsen Pebble VNIR (w/DISB Evaluation Board)
 - Ibsen Pebble NIR (w/DISB Evaluation Board)
+- StellarNet BlueWave
 
-### Running the ROS Nodes
+## Running the ROS Nodes
 
-#### Installing Prerequisite Libraries
+### Installing Prerequisite Libraries
 The Ibsen spectrometers require installation of the FT4222H library.
 ```
 wget https://ftdichip.com/wp-content/uploads/2022/06/libft4222-linux-1.4.4.170.tgz
@@ -19,7 +20,8 @@ tar zxvf libft4222-linux-1.4.4.170.tgz
 sudo ./install4222.sh
 ```
 The package should now be added to your `/usr/local/lib` and `/usr/local/include` directories for the C++ build path. If these locations are not writable, you can change the install location but make sure to update `CMakeLists.txt` with the new header and shared object file locations.
-#### Building the Package
+
+### Building the Package
 ```
 
 cd <<catkin_ws>>/src
@@ -29,14 +31,14 @@ catkin build
 source devel/setup.bash
 ```
 
-#### Mantispectra
+### Mantispectra
 
 Plug in device with included USB cable, note the serial port - defaults to `/dev/ttyUSB0`
 
 `rosrun spectrometer_drivers mantispectra.py`
 
 
-#### Mantispectra
+### Hamamatsu
 
 Plug in the Arduino UNO with included USB cable, note the serial port - defaults to `/dev/ttyACM0`
 
@@ -44,7 +46,7 @@ Build the sketch included under `arduino` and upload to the board.
 
 `rosrun spectrometer_drivers hamamatsu.py`
 
-#### Ibsen
+### Ibsen
 
 Plug in the DISB board to the 6V power supply and USB cable. 
 
@@ -52,8 +54,8 @@ Plug in the DISB board to the 6V power supply and USB cable.
 
 This will prompt you to run the code with elevated permissions (currently required by the ft4222 library).
 
-#### StellarNet
-##### Install Pyevn
+### StellarNet
+#### Install Pyevn
 The spectrometer uses a compiled cpthon object which is only compatible with python 3.6.X
 Follow the instructions [Here](https://github.com/pyenv/pyenv), but do not modify the .bashrc file
 ```
@@ -64,12 +66,13 @@ Take the path for installed python3.6 binary and use it as the shebang for `stel
 #!/home/river/.pyenv/versions/3.6.7/bin/python
 ```
 
-Plug in StellarNet spectrometer (Blue Box) to USB port on BACK of PC. The LED on front will turn green when the system is ready to go.
+Plug in StellarNet spectrometer (Blue Box) to USB port on BACK of PC. The LED on front will turn green when the system is ready to go. For additional SDK docuemntation, please reference this [pdf](https://www.stellarnet.us/wp-content/uploads/stellarnet_driver3-Documentation_v1.1.pdf).
 
 `rosrun spectrometer_drivers stellarnet_driver.py`
 ### Provided Topics
 
 `data_cal` - Reflectance normalized readings
+
 `data` - Raw readings in the spectrometer's native data format
 
 ### Troubleshooting
