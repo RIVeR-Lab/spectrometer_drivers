@@ -1,8 +1,9 @@
-#include <ros/ros.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "ftd2xx.h"
+#include <ros/ros.h>
 #include "libft4222.h"
 #include <ros/console.h>
 #include "spectrometer_drivers/Spectra.h"
@@ -117,12 +118,13 @@ public:
         ROS_INFO("\nPixel per Image: %d", PixelPerImage);
         // Read the number of characters used for calibration coeffients, located in register 6.
         uint16_t NumberofCaliChars = this->ReadRegister(this->ftHandleCS0, 6);
-        ROS_INFO("\nNumber of characters of calibration coeffients: %d ", NumberofCaliChars);
-        // Read the wavelength calibration coeffients, via register 7.
+        ROS_INFO("\nNumber of characters of calibration coefficients: %d ", NumberofCaliChars);
+        // Read the wavelength calibration coefficients, via register 7.
         // When register 6 has been read the pointer is directed toward the first address of register 7.
         // Reading register 7 automatically increments the pointer.
         ROS_INFO("\nCalibration coeffients: \n");
         // string CombinedCalibrationChars;
+        double ConvertedCalibrationCoefficients[NumberofCaliChars / 14];
         for (int i = 0; i < NumberofCaliChars / 14; i++)
         {
             char CombinedCalibrationChars[14];
@@ -132,6 +134,7 @@ public:
                 // CombinedCalibrationChars = CombinedCalibrationChars + calibrationChars[j];
             }
             ROS_INFO("%s \n", CombinedCalibrationChars);
+            ConvertedCalibrationCoefficients[i] = std::strtod(CombinedCalibrationChars, NULL);
         }
         // Read the temperature register number 11.
         uint16_t Temperature = this->ReadRegister(this->ftHandleCS0, 11);
@@ -159,7 +162,7 @@ public:
         // Set starting integration time
         this->SetIntegrationTime(integrationTime);
         // Create the wavelengths
-        this->wavelengths = this->LinearSpacedArray(this->minWave, this->maxWave, PixelPerImage);
+        this->wavelengths = this->GenerateWavelengths(ConvertedCalibrationCoefficients, PixelPerImage);
         while (ros::ok())
         {
             // Read the first pixel to be read, located in register 23.
@@ -206,13 +209,15 @@ public:
             uint16_t SpectrometerPix;
             float SpectrometerPixCov;
             spectrometer_drivers::Spectra msg;
-
+            std::vector<float> pixels;
             for (int i = 0; i < numberOfPixReady; i += 2)
             {
                 SpectrometerPix = (BufferIn[i] << 8) | (BufferIn[i + 1] & 0xff);
                 float SpectrometerPixCov = SpectrometerPix;
-                msg.data.push_back(SpectrometerPixCov);
+                pixels.push_back(SpectrometerPixCov);
             }
+            std::reverse(pixels.begin(), pixels.end());
+            msg.data = pixels;
             // Grab current temperature
             msg.temp = (int)this->ReadRegister(this->ftHandleCS0, 11);
             // Set integration time here
@@ -286,18 +291,16 @@ private:
             printf("Error, No FT4222H detected.\n");
         }
     }
-    // Linear interpolation following MATLAB linspace - Taken from https://gist.github.com/mortenpi/f20a93c8ed3ee7785e65
-    std::vector<float> LinearSpacedArray(float a, float b, std::size_t N)
+    // Use the device's wavelength calibration coefficients to generate the central wavelength associated with each pixel
+    std::vector<float> GenerateWavelengths(double Calibration[], std::size_t N)
     {
-        float h = (b - a) / static_cast<float>(N-1);
         std::vector<float> xs(N);
-        std::vector<float>::iterator x;
-        float val;
-        for (x = xs.begin(), val = a; x != xs.end(); ++x, val += h) {
-            *x = val;
+        for (double i = 0; i < N; i++) {
+            xs[i] = Calibration[0] + Calibration[1]*i + Calibration[2]*pow(i,2) + Calibration[3]*pow(i,3) + Calibration[4]*pow(i,4);
         }
         for (float i: xs)
             printf("%f",i); 
+        std::reverse(xs.begin(), xs.end());
         return xs;
     }
     bool UpdateIntegrationCallService(spectrometer_drivers::Integration::Request &req,
