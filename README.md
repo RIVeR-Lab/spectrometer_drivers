@@ -56,17 +56,22 @@ This will prompt you to run the code with elevated permissions (currently requir
 
 ### StellarNet
 #### Install Pyevn
-The spectrometer uses a compiled cpthon object which is only compatible with python 3.6.X
+The spectrometer uses a compiled cpython object which is only compatible with python 3.6.X
 Follow the instructions [Here](https://github.com/pyenv/pyenv), but do not modify the .bashrc file
 ```
 pyenv install 3.6.7
 ```
-Take the path for installed python3.6 binary and use it as the shebang for `stellarnetdriver.py`. It should look something like:
+Take the path for installed python3.6 binary and use it as the shebang for `stellarnet_driver.py`. It should look something like:
 ```
 #!/home/river/.pyenv/versions/3.6.7/bin/python
 ```
-
-Plug in StellarNet spectrometer (Blue Box) to USB port on BACK of PC. The LED on front will turn green when the system is ready to go. For additional SDK docuemntation, please reference this [pdf](https://www.stellarnet.us/wp-content/uploads/stellarnet_driver3-Documentation_v1.1.pdf).
+Add the following udev rule for the device:
+`sudo echo SUBSYSTEMS=="usb", ATTRS{idVendor}=="0bd7", ATTRS{idProduct}=="a012" GROUP="users", MODE="0666" >> /etc/udev/rules.d/50-myusb.rules `
+Refresh the rules system wide:
+`sudo udevadm control --reload-rules && sudo udevadm trigger   `
+Plug in StellarNet spectrometer (Blue Box) to USB port on BACK of PC. Without using ROS, run the following script:
+`sudo ./src/spectrometer_drivers/scripts/stellarnet/stellarnet_demo.py ` This will open up the device for use with the 
+The LED on front will turn green when the system is ready to go. For additional SDK documentation, please reference this [pdf](https://www.stellarnet.us/wp-content/uploads/stellarnet_driver3-Documentation_v1.1.pdf).
 
 `rosrun spectrometer_drivers stellarnet_driver.py`
 ### Provided Topics

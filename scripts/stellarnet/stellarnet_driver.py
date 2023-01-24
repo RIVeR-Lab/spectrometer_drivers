@@ -1,4 +1,4 @@
-#!/home/river/.pyenv/versions/3.6.7/bin/python
+#!/home/nathaniel/.pyenv/versions/3.6.8/bin/python3.6
 
 # This line must be set to python 3.6 or the script will not work!
 import os
@@ -37,11 +37,10 @@ class SpectrometerDriver():
         self.integration_time = rospy.get_param('integration_time', 0.100)
         self.white_ref = self.load_calibration(rospy.get_param('white_cal', os.path.join(rospack.get_path('spectrometer_drivers'),'data','stellarnet_white_ref.txt')))
         self.dark_ref = self.load_calibration(rospy.get_param('dark_cal', os.path.join(rospack.get_path('spectrometer_drivers'),'data', 'stellarnet_dark_ref.txt')))
-        # Create spectrometer connection
-        self.spectrometer, self.wavelengths = sn.array_get_spec(0)  
-        self.integration_time = rospy.get_param('integration_time', 100)
         self.scansavg = rospy.get_param('scan_averaging', 1)
         self.smooth = rospy.get_param('smoothing_factor', 1)
+        # Create spectrometer connection
+        self.spectrometer, self.wavelengths = sn.array_get_spec(0)  
         self.setup_spec()
 
         # Initialize publishers
@@ -59,7 +58,7 @@ class SpectrometerDriver():
         rospy.on_shutdown(self.shutdown)
 
     def setup_spec(self):
-        self.spectrometer['device'].set_config(int_time=self.integration_time, scans_to_avg=self.scansavg, x_smooth=self.smooth)
+        self.spectrometer['device'].set_config(int_time=int(self.integration_time*1000), scans_to_avg=self.scansavg, x_smooth=self.smooth)
     
     def process_data(self, data: np.ndarray) -> np.array:
         '''
@@ -146,9 +145,9 @@ class SpectrometerDriver():
         h = Header()
         h.stamp = rospy.Time.now() # Note you need to call rospy.init_node() before this will work
         toSend.header = h
-        toSend.data = list(data)
-        toSend.wavelengths = self.wavelengths
-        toSend.integrationTime = self.integration_time * 1000
+        toSend.data = list(data.astype(np.float32))
+        toSend.wavelengths = self.wavelengths.astype(np.float32)
+        toSend.integrationTime = float(self.integration_time * 1000)
         toSend.lampPower = 0
         toSend.humidity = 0
         toSend.temp = 0
@@ -218,11 +217,12 @@ class SpectrometerDriver():
         while not rospy.is_shutdown():
             try:
                 # Grab the raw data
-                spectra_data = sn.array_spectrum(self.spectrometer, self.wav)
+                spectra_data = sn.array_spectrum(self.spectrometer, self.wavelengths)
                 # Process and publish the data
-                self.process_data(spectra_data)
-                # Write the latest command
-                self.write_commands()
+                data = self.process_data(spectra_data)
+                # Publish data
+                self.send_spectra(data)
+
             except Exception as e:
                 rospy.logerr(f'Error in main spectrometer loop: {str(e)}')
                 rospy.logerr(traceback.print_exc())
@@ -232,7 +232,7 @@ class SpectrometerDriver():
         '''
         Custom shutdown behavior
         '''
-        pass
+        return
 
 # Main functionality
 if __name__ == '__main__':
