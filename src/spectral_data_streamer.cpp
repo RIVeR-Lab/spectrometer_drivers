@@ -14,32 +14,36 @@ class IbsenDriver
 public:
     IbsenDriver(ros::NodeHandle *nh)
     {
-        pub = nh->advertise<spectrometer_drivers::Spectra>("spectral_data", 10);
         nh->param<int>("integration_time", integrationTime, 10);
+        nh->getParam("wavelength_range", wavelength_range);
         nh->getParam("min_wavelength", minWave);
         nh->getParam("max_wavelength", maxWave);
+        pub = nh->advertise<spectrometer_drivers::Spectra>("spectral_data/" + this->wavelength_range, 10);
         ros::ServiceServer service = nh->advertiseService("set_integration_time", &IbsenDriver::UpdateIntegrationCallService, this);
+        // Find device handles to use here
+        std::vector<int> possibleHandles = ListFtUSBDevices();
+        int startIndex = this->TestDevices(possibleHandles, wavelength_range);
         this->ftHandleCS0 = (FT_HANDLE)NULL;
         this->ftHandleCS1 = (FT_HANDLE)NULL;
         // Open a connection to the spectrometer based on description for CS1.
-        ftStatus = FT_OpenEx((PVOID)(uintptr_t) "FT4222 A", FT_OPEN_BY_DESCRIPTION, &this->ftHandleCS1);
+        ftStatus = FT_OpenEx((PVOID)(uintptr_t)possibleHandles[startIndex], FT_OPEN_BY_LOCATION, &this->ftHandleCS1);
         if (ftStatus != FT_OK)
         {
             ROS_ERROR("\nFT_OpenEx failed (error %d)\n", (int)ftStatus);
         }
         else
         {
-            ROS_INFO("\nDevice succesfully opened with code: %d", (int)ftStatus);
+            ROS_INFO("\nDevice successfully opened with code: %d", (int)ftStatus);
         }
         // Open a connection to the spectrometer based on description for CS0.
-        ftStatus = FT_OpenEx((PVOID)(uintptr_t) "FT4222 B", FT_OPEN_BY_DESCRIPTION, &this->ftHandleCS0);
+        ftStatus = FT_OpenEx((PVOID)(uintptr_t)possibleHandles[startIndex+1], FT_OPEN_BY_LOCATION, &this->ftHandleCS0);
         if (ftStatus != FT_OK)
         {
             ROS_ERROR("\nFT_OpenEx failed (error %d)\n", (int)ftStatus);
         }
         else
         {
-            ROS_INFO("\nDevice succesfully opened with code: %d", (int)ftStatus);
+            ROS_INFO("\nDevice successfully opened with code: %d", (int)ftStatus);
         }
         //-------------------------------------------------------------------------------------------------------------
         // SET LATENCY TIMER
@@ -57,10 +61,10 @@ public:
         //-------------------------------------------------------------------------------------------------------------
         FT4222_SetClock(this->ftHandleCS1, SYS_CLK_60);
         //-------------------------------------------------------------------------------------------------------------
-        // MASTER SPI INTIALIZE
+        // MASTER SPI INITIALIZE
         // SPI Status
         FT4222_STATUS ft4222Status;
-        // Initilize the FT4222H as a master for USB to SPI bridge functionality.
+        // Initialize the FT4222H as a master for USB to SPI bridge functionality.
         /*
         Handle,
         One bit at a time data stream
@@ -116,7 +120,7 @@ public:
         // Read the number of pixels per image, located in register 5.
         uint16_t PixelPerImage = this->ReadRegister(this->ftHandleCS0, 5);
         ROS_INFO("\nPixel per Image: %d", PixelPerImage);
-        // Read the number of characters used for calibration coeffients, located in register 6.
+        // Read the number of characters used for calibration coefficients, located in register 6.
         uint16_t NumberofCaliChars = this->ReadRegister(this->ftHandleCS0, 6);
         ROS_INFO("\nNumber of characters of calibration coefficients: %d ", NumberofCaliChars);
         // Read the wavelength calibration coefficients, via register 7.
@@ -204,7 +208,7 @@ public:
             }
             FT4222_SPIMaster_SingleReadWrite(this->ftHandleCS1, BufferIn, BufferOut, datalength,
                                              &SizeTransferred, 1);
-            ROS_INFO("\nSize of tranfer %d \n", SizeTransferred);
+            ROS_INFO("\nSize of transfer %d \n", SizeTransferred);
             // Stich and print the pixel values
             uint16_t SpectrometerPix;
             float SpectrometerPixCov;
@@ -255,17 +259,19 @@ public:
 private:
     ros::Publisher pub;
     int integrationTime;
+    std::string wavelength_range;
     float minWave;
     float maxWave;
     std::vector<float> wavelengths;
     FT_STATUS ftStatus;
     FT_HANDLE ftHandleCS0;
     FT_HANDLE ftHandleCS1;
-    static void ListFtUSBDevices()
+    std::vector<int> ListFtUSBDevices()
     {
         DWORD numDevs = 0;
         int i;
         FT_STATUS ftStatus;
+        std::vector<int> devices;
         // Check number of devices
         ftStatus = FT_CreateDeviceInfoList(&numDevs);
         printf("%d", ftStatus);
@@ -284,12 +290,21 @@ private:
                 // Print some basic info about that device.
                 printf("\nDevice %d: Description '%s': LocationID '%d':", i, devInfo.Description,
                        devInfo.LocId);
+                if (strcmp(devInfo.Description,"FT4222 A") == 0) {
+                    // Found the first device!
+                    devices.push_back(devInfo.LocId);  
+                }
+                if (strcmp(devInfo.Description,"FT4222 B") == 0) {
+                    // Found the first device!
+                    devices.push_back(devInfo.LocId);  
+                }
             }
         }
         else
         {
             printf("Error, No FT4222H detected.\n");
         }
+        return devices;
     }
     // Use the device's wavelength calibration coefficients to generate the central wavelength associated with each pixel
     std::vector<float> GenerateWavelengths(double Calibration[], std::size_t N)
@@ -342,10 +357,10 @@ private:
     uint16_t ReadRegister(PVOID FThandle, int RegisterAddress)
     {
         uint8_t AppendedRegAddres = RegisterAddress * 4 + 2;
-        // Create a read- and writebuffer for data to be read and writen to the DISB registers.
+        // Create a read- and writebuffer for data to be read and written to the DISB registers.
         uint8 ReadBuffer[3], WriteBuffer[3];
-        // Used as the adress for which the number of bytes being read or writen after each ReadWrite command
-        // is registed.
+        // Used as the address for which the number of bytes being read or written after each ReadWrite command
+        // is registered.
         uint16 SizeTransferred;
         WriteBuffer[0] = AppendedRegAddres;
         WriteBuffer[1] = 0x0;
@@ -362,8 +377,8 @@ private:
         uint8_t AppendedRegAddres = RegisterAddress * 4;
         // Create a read- and writebuffer for data to be read and writen to the DISB registers.
         uint8 ReadBuffer[3], WriteBuffer[3], MSB, LSB;
-        // Used as the adress for which the number of bytes being read or writen after each ReadWrite command
-        // is registed.
+        // Used as the address for which the number of bytes being read or writen after each ReadWrite command
+        // is registered.
         uint16 SizeTransferred;
         // Split the 16-bit value into 2 bytes
         WriteBuffer[0] = AppendedRegAddres;
@@ -375,11 +390,96 @@ private:
         FT4222_SPIMaster_SingleReadWrite(FThandle, ReadBuffer, WriteBuffer, 3, &SizeTransferred, 1);
         return 0;
     }
+    // Given a series of device handles, connect to the device and extract important metadata
+    std::vector<float> GetDevice(int device_loc_1, int device_loc_2) {
+        //Setup status and 2 Handles for CS0 and CS1
+        FT_STATUS   ftStatus;
+        FT_HANDLE	ftHandleCS0 = (FT_HANDLE)NULL;
+        FT_HANDLE	ftHandleCS1 = (FT_HANDLE)NULL;
+
+        ftStatus = FT_OpenEx((PVOID)(uintptr_t)device_loc_1, FT_OPEN_BY_LOCATION, &ftHandleCS1);
+        if (ftStatus != FT_OK) {
+            printf("\nFT_OpenEx failed (error %d)\n", 
+                (int)ftStatus);
+        }
+        ftStatus = FT_OpenEx((PVOID)(uintptr_t)device_loc_2, FT_OPEN_BY_LOCATION, &ftHandleCS0);
+        if (ftStatus != FT_OK){
+            printf("\nFT_OpenEx failed (error %d)\n", 
+                (int)ftStatus);
+        }
+        UCHAR UcLatency = 20;
+        ftStatus = FT_SetLatencyTimer(ftHandleCS1, UcLatency);
+        ULONG OutTransferSize = 4096;
+        ULONG InTransferSize = 65536;
+        ftStatus = FT_SetUSBParameters(ftHandleCS1, InTransferSize, OutTransferSize);
+        FT4222_SetClock(ftHandleCS1, SYS_CLK_60);
+        FT4222_STATUS ft4222Status;
+        ft4222Status = FT4222_SPIMaster_Init(ftHandleCS0, SPI_IO_SINGLE,
+                        CLK_DIV_4, CLK_IDLE_LOW, 
+                        CLK_TRAILING, 2);
+        if (FT4222_OK != ft4222Status) {
+            printf("Init FT4222 as SPI master device failed!\n");
+        }
+        ft4222Status = FT4222_SPIMaster_Init(ftHandleCS1, SPI_IO_SINGLE, 
+                        CLK_DIV_4, CLK_IDLE_LOW, 
+                        CLK_TRAILING, 3);
+        if (FT4222_OK != ft4222Status) {
+            printf("Init FT4222 as SPI master device failed!\n");
+        }
+        //Read the number of characters used for calibration coefficients, located in register 6.
+        uint16_t NumberofCaliChars = ReadRegister(ftHandleCS0, 6);
+        double ConvertedCalibrationCoefficients[NumberofCaliChars / 14];
+        for (int i = 0; i < NumberofCaliChars / 14; i++)
+            {
+            char CombinedCalibrationChars[14];
+            for (int j = 0; j < 14; j++)
+            {
+            CombinedCalibrationChars[j] = ReadRegister(ftHandleCS0, 7);
+            }
+            ConvertedCalibrationCoefficients[i] = std::strtod(CombinedCalibrationChars, NULL);
+        }
+        //Read the number of pixels per image, located in register 5.
+        uint16_t PixelPerImage = ReadRegister(ftHandleCS0, 5);
+        std::vector<float> wavelengths = GenerateWavelengths(ConvertedCalibrationCoefficients, PixelPerImage);
+        FT4222_UnInitialize(ftHandleCS0);
+        FT4222_UnInitialize(ftHandleCS1);
+        FT_Close(ftHandleCS0);
+        FT_Close(ftHandleCS1);
+        return wavelengths;
+    }
+
+    int TestDevices(std::vector<int> devices, std::string target) {
+        printf("NUMBER OF DEVICES: %d",devices.size())
+        if (devices.size() % 2 != 0) {
+            printf("INVALID NUMBER OF DETECTED DEVICES");
+            return -1;
+        }
+        for (int i=0; i<(int)devices.size()-1; i=i+2) {
+            std::vector<float> waves = this->GetDevice(devices[i],devices[i+1]);
+            int minVal = *std::min_element(waves.begin(), waves.end());
+            int maxVal = *std::max_element(waves.begin(), waves.end());
+            printf("%d\n", minVal);
+            printf("%d\n", maxVal);
+            std::string currentDevice;
+            if (minVal < 460 && maxVal < 1105) {
+                currentDevice = "vnir";
+            } else {
+                currentDevice = "nir";
+            }
+            // Do a final check before returning
+            if (strcmp(target.c_str(),currentDevice.c_str()) == 0) {
+                return i;
+            }
+        }
+        // No matches, we shouldn't fall into this error case
+        ROS_ERROR("NO MATCHES FOR DESIRED SPECTROMETER TYPE!");
+        return -1;
+    }
 };
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "ibsen_driver");
+    ros::init(argc, argv, "ibsen_driver", ros::init_options::AnonymousName);
     ros::NodeHandle nh("~");
     IbsenDriver nc = IbsenDriver(&nh);
 }
