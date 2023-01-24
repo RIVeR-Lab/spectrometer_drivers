@@ -70,7 +70,8 @@ Add the following udev rule for the device:
 Refresh the rules system wide:
 `sudo udevadm control --reload-rules && sudo udevadm trigger   `
 Plug in StellarNet spectrometer (Blue Box) to USB port on BACK of PC. Without using ROS, run the following script:
-`sudo ./src/spectrometer_drivers/scripts/stellarnet/stellarnet_demo.py ` This will open up the device for use with the 
+`sudo ./src/spectrometer_drivers/scripts/stellarnet/stellarnet_demo.py ` This will open up the device for use without sudo as long as the device remains plugged in.
+
 The LED on front will turn green when the system is ready to go. For additional SDK documentation, please reference this [pdf](https://www.stellarnet.us/wp-content/uploads/stellarnet_driver3-Documentation_v1.1.pdf).
 
 `rosrun spectrometer_drivers stellarnet_driver.py`
