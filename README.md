@@ -88,6 +88,6 @@ Running ROS nodes as root can result in environmental variables not being proper
 ### TODO
 
 - [ ] Confirm both IBSEN devices run at the same time
-- [ ] Look at wavelength calibration coefficient for each device. Look into how to calibrate wavelengths
+- [X] Look at wavelength calibration coefficient for each device. Look into how to calibrate wavelengths
 - [ ] Provide configurations for spectrometers with available wavelengths
-- [ ] Move StellarNet Spectrometers into this directory for conciseness
+- [X] Move StellarNet Spectrometers into this directory for conciseness
