@@ -18,7 +18,7 @@ public:
         nh->getParam("wavelength_range", wavelength_range);
         nh->getParam("min_wavelength", minWave);
         nh->getParam("max_wavelength", maxWave);
-        pub = nh->advertise<spectrometer_drivers::Spectra>("spectral_data/" + this->wavelength_range, 10);
+        pub = nh->advertise<spectrometer_drivers::Spectra>("spectral_data", 10);
         ros::ServiceServer service = nh->advertiseService("set_integration_time", &IbsenDriver::UpdateIntegrationCallService, this);
         // Find device handles to use here
         std::vector<int> possibleHandles = ListFtUSBDevices();
@@ -84,7 +84,7 @@ public:
             // Print the pointer of the Read write register handle, if open correctly.
             ROS_DEBUG("\nPointer of Register parameter handle, CS0 in DISB HW manual : %p", this->ftHandleCS0);
         }
-        // Initilize the FT4222H as a master for USB to SPI bridge functionality.
+        // Initialize the FT4222H as a master for USB to SPI bridge functionality.
         /*
         Handle,
         One bit at a time data stream
@@ -126,7 +126,7 @@ public:
         // Read the wavelength calibration coefficients, via register 7.
         // When register 6 has been read the pointer is directed toward the first address of register 7.
         // Reading register 7 automatically increments the pointer.
-        ROS_INFO("\nCalibration coeffients: \n");
+        ROS_INFO("\nCalibration coefficients: \n");
         // string CombinedCalibrationChars;
         double ConvertedCalibrationCoefficients[NumberofCaliChars / 14];
         for (int i = 0; i < NumberofCaliChars / 14; i++)
@@ -193,30 +193,40 @@ public:
             */
             //-------------------------------------------------------------------------------------------------------------------------------
             // Change the chip select from 0 to 1 (CS0 --> CS1) and Framesize from 8-bit bytes to 16-bit
-            // "\n-----------------------------------------------------------------------------------------------
-            // ";
-            ROS_INFO("\n");
-            uint16_t SizeTransferred;
-            uint16_t datalength = (LastPixel - FirstPixel + 1.0) * 2.0;
-            uint8_t BufferIn[datalength];
-            uint8_t BufferOut[datalength];
-            uint16_t numberOfPixReady = 0;
-            std::cout << "Number of pixels ready " << numberOfPixReady << std::endl;
-            while (numberOfPixReady < PixelPerImage - 1)
+
+            //The two bytes are then stitched together to form the correct pixel values.
+            uint16 datalength = (LastPixel - FirstPixel + 1.0) * 2.0;
+            std::vector<uint8> NewReadFrambuffer{ 0 };
+            NewReadFrambuffer.resize(datalength);
+            std::vector<uint8> NewWriteFrambuffer{ 0 };
+            NewWriteFrambuffer.resize(datalength);
+            
+            //Wait for the framebuffer to be full (NumberOfPixReady = LastPixel) or for timeout after 1 second.
+            clock_t StartTime = clock();
+            clock_t CurrentTime = clock();
+            int TimeElapsedinSec;
+            uint16_t NumberOfPixReady;
+            do {
+                NumberOfPixReady = ReadRegister(ftHandleCS0, 12);
+                CurrentTime = clock();
+                TimeElapsedinSec = (CurrentTime - StartTime) / CLOCKS_PER_SEC;
+            } while (NumberOfPixReady - LastPixel < 0 && TimeElapsedinSec < 1);
+            if (TimeElapsedinSec >= 1)
             {
-                numberOfPixReady = this->ReadRegister(this->ftHandleCS0, 12);
+                printf("\nTimeout error when capturing spectrum\n");
             }
-            FT4222_SPIMaster_SingleReadWrite(this->ftHandleCS1, BufferIn, BufferOut, datalength,
-                                             &SizeTransferred, 1);
+
+            uint16_t SizeTransferred;
+            //Read the pixel values
+            FT4222_SPIMaster_SingleReadWrite(ftHandleCS1, NewReadFrambuffer.data(), NewWriteFrambuffer.data(), datalength, &SizeTransferred, 1);
+
             ROS_INFO("\nSize of transfer %d \n", SizeTransferred);
-            // Stich and print the pixel values
-            uint16_t SpectrometerPix;
-            float SpectrometerPixCov;
-            spectrometer_drivers::Spectra msg;
+            //Stich and print the pixel values
             std::vector<float> pixels;
-            for (int i = 0; i < numberOfPixReady; i += 2)
-            {
-                SpectrometerPix = (BufferIn[i] << 8) | (BufferIn[i + 1] & 0xff);
+            spectrometer_drivers::Spectra msg;
+            uint16_t SpectrometerPix;
+            for (int i = 0; i < datalength; i += 2) {
+                SpectrometerPix = (NewReadFrambuffer[i] << 8) | (NewReadFrambuffer[i + 1] & 0xff);
                 float SpectrometerPixCov = SpectrometerPix;
                 pixels.push_back(SpectrometerPixCov);
             }
@@ -356,13 +366,13 @@ private:
     // Read value of DISB register
     uint16_t ReadRegister(PVOID FThandle, int RegisterAddress)
     {
-        uint8_t AppendedRegAddres = RegisterAddress * 4 + 2;
+        uint8_t AppendedRegAddress = RegisterAddress * 4 + 2;
         // Create a read- and writebuffer for data to be read and written to the DISB registers.
         uint8 ReadBuffer[3], WriteBuffer[3];
         // Used as the address for which the number of bytes being read or written after each ReadWrite command
         // is registered.
         uint16 SizeTransferred;
-        WriteBuffer[0] = AppendedRegAddres;
+        WriteBuffer[0] = AppendedRegAddress;
         WriteBuffer[1] = 0x0;
         WriteBuffer[2] = 0x0;
         // Perform a single read/write operation with 3 bytes
@@ -374,14 +384,14 @@ private:
     // Set a new DISB Register value
     int SetRegister(PVOID FThandle, int RegisterAddress, int NewRegisterValue)
     {
-        uint8_t AppendedRegAddres = RegisterAddress * 4;
-        // Create a read- and writebuffer for data to be read and writen to the DISB registers.
+        uint8_t AppendedRegAddress = RegisterAddress * 4;
+        // Create a read- and writebuffer for data to be read and written to the DISB registers.
         uint8 ReadBuffer[3], WriteBuffer[3], MSB, LSB;
-        // Used as the address for which the number of bytes being read or writen after each ReadWrite command
+        // Used as the address for which the number of bytes being read or written after each ReadWrite command
         // is registered.
         uint16 SizeTransferred;
         // Split the 16-bit value into 2 bytes
-        WriteBuffer[0] = AppendedRegAddres;
+        WriteBuffer[0] = AppendedRegAddress;
         MSB = NewRegisterValue >> 8;
         LSB = NewRegisterValue;
         WriteBuffer[1] = MSB;
@@ -449,7 +459,7 @@ private:
     }
 
     int TestDevices(std::vector<int> devices, std::string target) {
-        printf("NUMBER OF DEVICES: %d",devices.size())
+        printf("NUMBER OF DEVICES: %d",devices.size());
         if (devices.size() % 2 != 0) {
             printf("INVALID NUMBER OF DETECTED DEVICES");
             return -1;

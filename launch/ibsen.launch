@@ -1,13 +1,13 @@
 <launch>
     <arg name="wavelength_range" default="vnir" doc="vnir or nir"/>
     <node pkg="spectrometer_drivers" type="spectral_data_streamer" name="ibsen_vnir" launch-prefix="sudo -SE">
-        <param name="min_wavelength" value="500"/> <!--Pebble VNIR = 500, Pebble NIR = 950 -->
-        <param name="max_wavelength" value="1100"/> <!-- Pebble VNIR = 1100, Pebble NIR = 1700 -->
-        <param name="wavelength_range" value="vnir"/> <!-- Pebble VNIR = 1100, Pebble NIR = 1700 -->
+        <param name="min_wavelength" value="500"/>
+        <param name="max_wavelength" value="1100"/>
+        <param name="wavelength_range" value="vnir"/>
     </node>
     <node pkg="spectrometer_drivers" type="spectral_data_streamer" name="ibsen_nir" launch-prefix="sudo -SE">
-        <param name="min_wavelength" value="500"/> <!--Pebble VNIR = 500, Pebble NIR = 950 -->
-        <param name="max_wavelength" value="1100"/> <!-- Pebble VNIR = 1100, Pebble NIR = 1700 -->
-        <param name="wavelength_range" value="nir"/> <!-- Pebble VNIR = 1100, Pebble NIR = 1700 -->
+        <param name="min_wavelength" value="950"/>
+        <param name="max_wavelength" value="1700"/>
+        <param name="wavelength_range" value="nir"/>
     </node>
 </launch>
