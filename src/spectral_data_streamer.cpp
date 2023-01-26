@@ -230,8 +230,15 @@ public:
                 float SpectrometerPixCov = SpectrometerPix;
                 pixels.push_back(SpectrometerPixCov);
             }
-            std::reverse(pixels.begin(), pixels.end());
-            msg.data = pixels;
+            // Extract only valid pixels from the range
+            if (strcmp(this->wavelength_range.c_str(),"nir") == 0) {
+                std::vector<float> finalData = {pixels.begin() + 62, pixels.begin() + 190};
+                std::reverse(finalData.begin(), finalData.end());
+                msg.data = finalData;
+            } else {
+                std::reverse(pixels.begin(), pixels.end());
+                msg.data = pixels;
+            }
             // Grab current temperature
             msg.temp = (int)this->ReadRegister(this->ftHandleCS0, 11);
             // Set integration time here
@@ -319,12 +326,24 @@ private:
     // Use the device's wavelength calibration coefficients to generate the central wavelength associated with each pixel
     std::vector<float> GenerateWavelengths(double Calibration[], std::size_t N)
     {
+        // Used to generated full wavelength spectra
         std::vector<float> xs(N);
+        // Only used for NIR where 128 pixels are present
+        std::vector<float> xs_extract(128);
         for (double i = 0; i < N; i++) {
             xs[i] = Calibration[0] + Calibration[1]*i + Calibration[2]*pow(i,2) + Calibration[3]*pow(i,3) + Calibration[4]*pow(i,4);
         }
         for (float i: xs)
-            printf("%f",i); 
+            printf("%f",i);
+        if (strcmp(this->wavelength_range.c_str(),"nir") == 0) {
+            // Extract only the 128 useful pixels
+            std::copy_if (xs.begin(), xs.end(), std::back_inserter(xs_extract), [](float i){return i>=900 && i<=1702;} );
+            xs_extract.erase(
+                std::remove(xs_extract.begin(), xs_extract.end(), 0),
+                xs_extract.end());
+            xs_extract.shrink_to_fit();
+            xs = xs_extract;
+        }
         std::reverse(xs.begin(), xs.end());
         return xs;
     }
@@ -459,7 +478,7 @@ private:
     }
 
     int TestDevices(std::vector<int> devices, std::string target) {
-        printf("NUMBER OF DEVICES: %d",devices.size());
+        printf("NUMBER OF DEVICES: %d",(int)devices.size());
         if (devices.size() % 2 != 0) {
             printf("INVALID NUMBER OF DETECTED DEVICES");
             return -1;

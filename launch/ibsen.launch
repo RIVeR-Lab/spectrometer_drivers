@@ -6,7 +6,7 @@
         <param name="wavelength_range" value="vnir"/>
     </node>
     <node pkg="spectrometer_drivers" type="spectral_data_streamer" name="ibsen_nir" launch-prefix="sudo -SE">
-        <param name="min_wavelength" value="950"/>
+        <param name="min_wavelength" value="900"/>
         <param name="max_wavelength" value="1700"/>
         <param name="wavelength_range" value="nir"/>
     </node>
