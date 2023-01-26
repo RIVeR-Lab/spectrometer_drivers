@@ -47,12 +47,11 @@ Build the sketch included under `arduino` and upload to the board.
 `rosrun spectrometer_drivers hamamatsu.py`
 
 ### Ibsen
-
 Plug in the DISB board to the 6V power supply and USB cable. 
 
 `roslaunch spectrometer_drivers ibsen.launch`
 
-This will prompt you to run the code with elevated permissions (currently required by the ft4222 library).
+The will prompt you for your user password as the driver needs sudo access to read from the USB port.
 
 ### StellarNet
 #### Install Pyevn
