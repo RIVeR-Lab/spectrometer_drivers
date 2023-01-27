@@ -14,7 +14,7 @@ class IbsenDriver
 public:
     IbsenDriver(ros::NodeHandle *nh)
     {
-        nh->param<int>("integration_time", integrationTime, 10);
+        nh->param<float>("integration_time", integrationTime, 10);
         nh->getParam("wavelength_range", wavelength_range);
         nh->getParam("min_wavelength", minWave);
         nh->getParam("max_wavelength", maxWave);
@@ -275,7 +275,7 @@ public:
 
 private:
     ros::Publisher pub;
-    int integrationTime;
+    float integrationTime;
     std::string wavelength_range;
     float minWave;
     float maxWave;
@@ -363,7 +363,7 @@ private:
     }
     // Calculate the integration time
     // @param newTime is the integration time in miliseconds
-    void SetIntegrationTime(int newTime) {
+    void SetIntegrationTime(float newTime) {
         /*
         Setting an integration time of 10 ms.
         Integration time is set in increments of 200 ns, so 10 ms => 50.000 => MSB 0x000 - LBS 0xC350
@@ -375,7 +375,7 @@ private:
         // Setting integration time of Register 9 LSB.
         this->SetRegister(this->ftHandleCS0, 9, useTime);
     }
-    int CalculateIntegrationTime(int requestTime) {
+    int CalculateIntegrationTime(float requestTime) {
         /* Requested time is the time in miliseconds
         Integration time is set in increments of 200 ns, so 10 ms => 50.000 => MSB 0x000 - LBS 0xC350
         */

@@ -1,13 +1,45 @@
 <launch>
-    <arg name="wavelength_range" default="vnir" doc="vnir or nir"/>
     <node pkg="spectrometer_drivers" type="spectral_data_streamer" name="ibsen_vnir" launch-prefix="sudo -SE">
         <param name="min_wavelength" value="500"/>
         <param name="max_wavelength" value="1100"/>
         <param name="wavelength_range" value="vnir"/>
+        <param name="integration_time" value="0.5"/>
     </node>
     <node pkg="spectrometer_drivers" type="spectral_data_streamer" name="ibsen_nir" launch-prefix="sudo -SE">
         <param name="min_wavelength" value="900"/>
         <param name="max_wavelength" value="1700"/>
         <param name="wavelength_range" value="nir"/>
+                <param name="integration_time" value="10"/>
+    </node>
+    <node pkg="spectrometer_drivers" type="spectral_plot.py" name="ibsen_vis_plot">
+        <param name="data_topic" value="/ibsen_vnir/spectral_data"/>
+        <param name="min_wavelength" value="500.0"/>
+        <param name="max_wavelength" value="1100.0"/>
+        <param name="min_count" value="0.0"/>
+        <param name="max_count" value="65536"/> <!-- This spectrometer has 2^16 full well capacity -->
+        <param name="spectrometer_model" value="Ibsen VNIR"/>
+    </node>
+    <node pkg="spectrometer_drivers" type="spectral_plot.py" name="ibsen_nir_plot">
+        <param name="data_topic" value="/ibsen_nir/spectral_data"/>
+        <param name="min_wavelength" value="900.0"/>
+        <param name="max_wavelength" value="1700.0"/>
+        <param name="min_count" value="0.0"/>
+        <param name="max_count" value="65536"/> <!-- This spectrometer has 2^16 full well capacity -->
+        <param name="spectrometer_model" value="Ibsen NIR"/>
+    </node>
+    <!-- Combined Spectrometer Readings -->
+    <node pkg="spectrometer_drivers" type="combine_ibsen.py" name="spectra_combiner">
+        <param name="vnir_topic" value="/ibsen_vnir/spectral_data"/>
+        <param name="nir_topic" value="/ibsen_nir/spectral_data"/>
+        <param name="rate" value="10"/>
+    </node>
+    <!-- Visualize the combined spectra -->
+    <node pkg="spectrometer_drivers" type="spectral_plot.py" name="combined_plot">
+        <param name="data_topic" value="/combined_spectra"/>
+        <param name="min_wavelength" value="500.0"/>
+        <param name="max_wavelength" value="1700.0"/>
+        <param name="min_count" value="0.0"/>
+        <param name="max_count" value="65536"/> <!-- This spectrometer has 2^16 full well capacity -->
+        <param name="spectrometer_model" value="Ibsen Combined"/>
     </node>
 </launch>
