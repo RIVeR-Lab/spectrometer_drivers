@@ -110,7 +110,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES spectrometer_drivers
-#  CATKIN_DEPENDS roscpp rospy std_msgs
+  CATKIN_DEPENDS roscpp rospy std_msgs message_runtime
 #  DEPENDS system_lib
 )
 
@@ -132,3 +132,4 @@ find_library(ft4222 REQUIRED)
 
 add_executable(spectral_data_streamer src/spectral_data_streamer.cpp)
 target_link_libraries(spectral_data_streamer ${catkin_LIBRARIES} ft4222)
+add_dependencies(spectral_data_streamer spectrometer_drivers_generate_messages_cpp)
