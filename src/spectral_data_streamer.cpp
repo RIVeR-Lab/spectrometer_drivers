@@ -1,5 +1,6 @@
 #include <math.h>
 #include <stdio.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include "ftd2xx.h"
@@ -220,7 +221,7 @@ public:
             //Read the pixel values
             FT4222_SPIMaster_SingleReadWrite(ftHandleCS1, NewReadFrambuffer.data(), NewWriteFrambuffer.data(), datalength, &SizeTransferred, 1);
 
-            ROS_INFO("\nSize of transfer %d \n", SizeTransferred);
+            // ROS_INFO("\nSize of transfer %d \n", SizeTransferred);
             //Stich and print the pixel values
             std::vector<float> pixels;
             spectrometer_drivers::Spectra msg;
@@ -250,7 +251,12 @@ public:
             ros::Duration((double)this->integrationTime/(double)1000).sleep();
             ros::spinOnce();
         }
+        FT4222_UnInitialize(ftHandleCS0);
+        FT4222_UnInitialize(ftHandleCS1);
+        FT_Close(ftHandleCS0);
+        FT_Close(ftHandleCS1);
     }
+    
     ~IbsenDriver()
     {
         /*
@@ -371,9 +377,11 @@ private:
         this->integrationTime = newTime;
         int useTime = this->CalculateIntegrationTime(newTime);
         // Setting integration time of Register 10 MSB.
-        this->SetRegister(this->ftHandleCS0, 10, 0);
+        unsigned int lsb = useTime & 0xFFFF;
+        unsigned int msb = (useTime >> 16) & 0xFFFF;
+        this->SetRegister(this->ftHandleCS0, 10, msb);
         // Setting integration time of Register 9 LSB.
-        this->SetRegister(this->ftHandleCS0, 9, useTime);
+        this->SetRegister(this->ftHandleCS0, 9, lsb);
     }
     int CalculateIntegrationTime(float requestTime) {
         /* Requested time is the time in miliseconds
