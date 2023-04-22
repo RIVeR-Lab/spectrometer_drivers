@@ -51,8 +51,8 @@ Plug in the DISB board to the 6V power supply and USB cable.
 
 Open the following with root permission `sudo nano /etc/environment` and insert the following lines. Make sure to keep any other aspects of your linked libraries or paths that already exist.
 ```
-PATH="$PATH:/opt/ros/melodic/bin"
-LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/opt/ros/melodic/lib"
+PATH="$PATH:/opt/ros/<<ROS_DISTRO>>/bin"
+LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/opt/ros/<<ROS_DISTRO>>/lib"
 ```
 Use the following launch file to bring up the device. By default this will bring up both the Pebble NIR and VNIR devices. Commenting out blocks will enable only once device to be launched.
 
