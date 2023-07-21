@@ -62,6 +62,9 @@ The will prompt you for your user password as the driver needs sudo access to re
 
 ### StellarNet
 #### Install Pyevn
+
+The original installer is available [here](https://www.dropbox.com/sh/j9bw29n5kkv4sp6/AAA_-D--aqtZAdPvsNlHenfXa?dl=0).
+
 The spectrometer uses a compiled cpython object which is only compatible with python 3.6.X
 Follow the instructions [Here](https://github.com/pyenv/pyenv), but do not modify the .bashrc file
 ```

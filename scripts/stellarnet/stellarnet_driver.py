@@ -1,4 +1,4 @@
-#!/home/nathaniel/.pyenv/versions/3.6.8/bin/python3.6
+#!/home/river/.pyenv/versions/3.6.8/bin/python3.6
 
 # This line must be set to python 3.6 or the script will not work!
 import os
