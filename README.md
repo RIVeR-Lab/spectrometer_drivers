@@ -75,7 +75,7 @@ Take the path for installed python3.6 binary and use it as the shebang for `stel
 #!/home/river/.pyenv/versions/3.6.7/bin/python
 ```
 Add the following udev rule for the device:
-`sudo echo SUBSYSTEM=="usb", ATTRS{idVendor}=="0bd7", ATTRS{idProduct}=="a012" GROUP="users", MODE="0666" >> /etc/udev/rules.d/50-myusb.rules `
+`sudo echo 'SUBSYSTEMS=="usb", ATTRS{idVendor}=="04b4", ATTRS{idProduct}=="8613", GROUP="users", MODE="0666"' >> /etc/udev/rules.d/50-myusb.rules `
 Refresh the rules system wide:
 `sudo udevadm control --reload-rules && sudo udevadm trigger   `
 Plug in StellarNet spectrometer (Blue Box) to USB port on BACK of PC. Without using ROS, run the following script:
