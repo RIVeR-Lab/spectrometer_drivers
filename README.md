@@ -54,11 +54,22 @@ Open the following with root permission `sudo nano /etc/environment` and insert 
 PATH="$PATH:/opt/ros/<<ROS_DISTRO>>/bin"
 LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/opt/ros/<<ROS_DISTRO>>/lib"
 ```
+Enable the device to be used by adding the following device rules to your UDEV rules
+```
+UBSYSTEMS=="usb", ATTRS{idVendor}=="0424", ATTRS{idProduct}=="2504", MODE="0666", OWNER="<<YOUR_USER_NAME>>"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="601c", MODE="0666", OWNER="<<YOUR_USER_NAME>>"
+```
+Apply the rules with:
+```
+sudo usermod -aG plugdev <<YOUR_USER_NAME>>
+sudo usermod -aG dialout <<YOUR_USER_NAME>>
+sudo usermod -aG tty <<YOUR_USER_NAME>>
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
 Use the following launch file to bring up the device. By default this will bring up both the Pebble NIR and VNIR devices. Commenting out blocks will enable only once device to be launched.
 
 `roslaunch spectrometer_drivers ibsen.launch`
-
-The will prompt you for your user password as the driver needs sudo access to read from the USB port.
 
 ### StellarNet
 #### Install Pyevn

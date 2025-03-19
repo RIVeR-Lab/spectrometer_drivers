@@ -1,4 +1,4 @@
-#!/home/nathaniel/.pyenv/versions/3.6.8/bin/python3.6
+#!/home/parses/.pyenv/versions/3.6.7/bin/python3.6
 
 # This line must be set to python 3.6 or the script will not work!
 import os
@@ -34,7 +34,7 @@ class SpectrometerDriver():
         rospack = rospkg.RosPack()
         # Grab parameters from the ros param server
         # Integration time in seconds
-        self.integration_time = rospy.get_param('integration_time', 0.100)
+        self.integration_time = rospy.get_param('integration_time', 0.015)
         self.white_ref = self.load_calibration(rospy.get_param('white_cal', os.path.join(rospack.get_path('spectrometer_drivers'),'data','stellarnet_white_ref.txt')))
         self.dark_ref = self.load_calibration(rospy.get_param('dark_cal', os.path.join(rospack.get_path('spectrometer_drivers'),'data', 'stellarnet_dark_ref.txt')))
         self.scansavg = rospy.get_param('scan_averaging', 1)
@@ -217,7 +217,10 @@ class SpectrometerDriver():
         while not rospy.is_shutdown():
             try:
                 # Grab the raw data
+                start = time.time()
                 spectra_data = sn.array_spectrum(self.spectrometer, self.wavelengths)
+                end = time.time()
+                # print(f'This took: {start-end} seconds')
                 # Process and publish the data
                 data = self.process_data(spectra_data)
                 # Publish data
@@ -226,7 +229,7 @@ class SpectrometerDriver():
             except Exception as e:
                 rospy.logerr(f'Error in main spectrometer loop: {str(e)}')
                 rospy.logerr(traceback.print_exc())
-            rospy.sleep(self.integration_time)
+            rospy.sleep(0.001)
 
     def shutdown(self):
         '''
@@ -237,7 +240,7 @@ class SpectrometerDriver():
 # Main functionality
 if __name__ == '__main__':
     # Initialize the node and name it.
-    rospy.init_node('spectrometer_driver', anonymous=True)
+    rospy.init_node('spectrometer_driver', anonymous=False)
     try:
         controller = SpectrometerDriver()
         controller.run()

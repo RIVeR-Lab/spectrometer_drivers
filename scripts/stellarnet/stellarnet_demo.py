@@ -1,4 +1,4 @@
-#!/home/nathaniel/.pyenv/versions/3.6.8/bin/python
+#!/home/parses/.pyenv/versions/3.6.7/bin/python
 import sys
 print(sys.path)
 import stellarnet_driver3 as sn
